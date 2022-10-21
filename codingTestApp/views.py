@@ -1,9 +1,11 @@
-from django.core.cache import cache
-from django.http import HttpResponse, JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-
 from .models import Users
-from .utils import validate_data, getDataFromExcel #extract_data, 
+from django.core import serializers
+from django.core.cache import cache
+from django.forms.models import model_to_dict
+from django.http import HttpResponse, JsonResponse
+from .utils import validate_data, getDataFromExcel
+from django.views.decorators.csrf import csrf_exempt
+from .tasks import process_data_from_excel, save_data_to_db
 
 
 
@@ -32,6 +34,10 @@ def upload_users_file(request):
         if not uploaded_file.name.endswith('.xlsx'):
             result = {'status': 'error','description': 'Please provide an excel file'}
             return JsonResponse(result)
+
+        #TODO:Send data validation to Clery background task
+        #process_data_from_excel.delay(uploaded_file)
+
 
         #Open file and store content in Redis instance
         data_ = getDataFromExcel(uploaded_file)
@@ -66,19 +72,18 @@ def commit_to_db(request):
         if data is None:
             return JsonResponse({'status': 'error', 'description':'There no data to commit to DB yet'})
 
-        for item in data:
-            Users.objects.create(
-                names = item.get('names'),
-                nid = item.get('nid'),
-                phone_number = item.get('phone_number'),
-                gender = item.get('gender'),
-                email = item.get('email'),
-                phone_valid = item.get('phone_valid'),
-                nid_valid = item.get('nid_valid'),
-                email_valid = item.get('email_valid')
-            )
-            cache.delete('USERS')
+        # Call Celery background job to save data
+        save_data_to_db.delay(data)
+
+        cache.delete('USERS')
         return JsonResponse({'status': 'ok', 'description':'saved to DB'})
 
     if request.method == 'GET':
         return JsonResponse({'status': 'error', 'description':'use POST please'})
+
+
+def savedUsers(request):
+    users = Users.objects.all()
+    qs_json = serializers.serialize('json', users)
+    return HttpResponse(qs_json, content_type='application/json')
+

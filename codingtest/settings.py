@@ -51,6 +51,7 @@ INSTALLED_APPS = [
 
     'rest_framework',
     'codingTestApp',
+    'django_celery_results',
 ]
 
 MIDDLEWARE = [
