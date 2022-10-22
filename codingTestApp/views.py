@@ -6,20 +6,30 @@ from django.http import HttpResponse, JsonResponse
 from .utils import validate_data, getDataFromExcel
 from django.views.decorators.csrf import csrf_exempt
 from .tasks import process_data_from_excel, save_data_to_db
-
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import permission_classes
+from rest_framework.decorators import api_view
 
 
 def home(request):
     """
-    Desc:
+    Return Ok to notify that the application is running
+    Doesn't require user to be authenticated
     """
     return JsonResponse({'status': 'ok','description': 'app is running'})
 
 
-@csrf_exempt
+
+@api_view(['POST'])
+@permission_classes((IsAuthenticated, ))
 def upload_users_file(request):
     """
+    1. Get uploaded excel file
+    2. Check any malformation 
+    3. Validate the file
+    4. Save the data to In memory Redis instance
     """
+
     if request.method == 'POST':
         
         uploaded_file = request.FILES.get('usersfile')
@@ -56,15 +66,27 @@ def upload_users_file(request):
         return JsonResponse(result)
 
 
+
+@api_view(['GET'])
+@permission_classes((IsAuthenticated, ))
 def users_list(request):
+    """
+    Show the validated users in redis Instance
+    """
+    print('running')
     data = cache.get("USERS")
     if data is None:
         return JsonResponse({'status': 'error', 'description':'There is no data yet'})
     return JsonResponse({'status':'ok', 'data': data})
 
 
-@csrf_exempt
+
+@api_view(['POST'])
+@permission_classes((IsAuthenticated, ))
 def commit_to_db(request):
+    """
+    Save Validated users in redis instance to Database
+    """
     
     if request.method == 'POST':
 
@@ -82,7 +104,15 @@ def commit_to_db(request):
         return JsonResponse({'status': 'error', 'description':'use POST please'})
 
 
+
+
+@api_view(['GET'])
+@permission_classes((IsAuthenticated, ))
 def savedUsers(request):
+
+    """
+    Return saved users in the database
+    """
     users = Users.objects.all()
     qs_json = serializers.serialize('json', users)
     return HttpResponse(qs_json, content_type='application/json')
