@@ -32,6 +32,10 @@ Here's the database schema screenshoot.
 <br>
 Finally, you can call the `savedusers/` endpoint to view the saved users in the database.<br>
 
+Here's the full architecture of the application
+![application architecture](docs/images/django_celery_architecture(1).png)
+<br>
+
 ## Run The application.
 Below is how you can run the application locally for development and test it out.
 
